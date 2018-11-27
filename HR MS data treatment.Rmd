@@ -1,5 +1,5 @@
 ---
-title: "Identification v2"
+title: "Data cleaning"
 On va d'abord identifier puis faire la déconvolution
 author: "Natalie Kummer"
 date: "17 aoÃ»t 2018"
@@ -13,7 +13,7 @@ install.packages('plyr')
 library(plyr)
 # Donner le nom du fichier (écahntillons)
 ```{R}
-samplename<-"20180713_All_Results"
+samplename<-"20181108_All_Results"
 ```
 Ouvrir les CSV et installer les packages nécessaires
 ```{R}
@@ -23,27 +23,27 @@ wd<-paste("C:/Users/nkummer1/switchdrive/MA/Vion/Data Treatment/R/",samplename, 
 setwd(wd)
 data <- data.frame(read.csv(rawdata,sep=";",dec=".",skip=2), headings=TRUE,stringsAsFactors=FALSE) 
 data<-as.data.frame(data[,c(1:ncol(data)-1)])      # et effacement de la dernière colonne "heading"
-class <- data.frame(read.csv(rawdata,sep=";",dec="."), headings=TRUE,stringsAsFactors=FALSE) 
-class<-as.data.frame(class[,c(1:ncol(class)-1)])      # et effacement de la dernière colonne "heading"
-class<-class[1,]
+Groupe <- data.frame(read.csv(rawdata,sep=";",dec="."), headings=TRUE,stringsAsFactors=FALSE) 
+Groupe<-as.data.frame(Groupe[,c(1:ncol(Groupe)-1)])      # et effacement de la dernière colonne "heading"
+Groupe<-Groupe[1,]
 ```
-# Pour donner lea class à tous les échantillons (indiqué que pour la première colonne de chaque groupe)
+# Pour donner les Groupe à tous les échantillons (indiqué que pour la première colonne de chaque groupe)
 
 ```{R}
-PositionSample<-match("Normalised.abundance",names(class))
-for (i in PositionSample:ncol(class)) {      ## Seulement la class du premier échantillon est indiqué, mais pas celui des autres échantillons, on colle la class à tous les échantillons...
-    if (class[,i]==""){
-    class[,i]<-x
+PositionSample<-match("Normalised.abundance",names(Groupe))
+for (i in PositionSample:ncol(Groupe)) {      ## Seulement la Groupe du premier échantillon est indiqué, mais pas celui des autres échantillons, on colle la Groupe à tous les échantillons...
+    if (Groupe[,i]==""){
+    Groupe[,i]<-x
     }  else {
-        x<-class[,i]
+        x<-Groupe[,i]
     }
 }
-names(class)<-names(data)
+names(Groupe)<-names(data)
 ```
-# Recherche des m/z dans la base de données "20180803_Compounds_IJChem" --> Data1
+# Recherche des m/z dans la base de données "20181122_Compounds_IJChem" --> Data1 (avec les précursor N= 1161)
 ```{R}
 setwd("C:/Users/nkummer1/switchdrive/MA/Vion/Data Treatment/R/Identification")
-database <- data.frame(read.csv("20181019_Compounds_IJChem.csv",sep=";"), headings=TRUE)
+database <- data.frame(read.csv("20181122_Compounds_IJChem.csv",sep=";"), headings=TRUE)
 data1 <- as.data.frame(data)
 data1$Identifications<- "-"                       # On va utiliser la colonne "Identifications" (qui est vide) pour y mettre les id possible
 
@@ -72,13 +72,15 @@ for(i in 1:nrow(data1)){
 CompoundsDetected <- count(data1, "Identifications") 
 setwd(wd)
 write.csv(CompoundsDetected, file = "CompoundsDetected.csv", row.names = FALSE)
+#Cleaning step
+remove(id, data)
 ```
-## Classer par RT croissant (garder que les RT > 11 min)
+## Grouper par RT croissant (garder que les RT > 11 min)
 
 ```{R}
 setwd(wd)
 write.csv(data1, file = "data1.csv", row.names = FALSE)
-data1<-data1[order(data1$Retention.time..min.),]      # Classement de la plus petite à la plus grande valeur (RT) ...
+data1<-data1[order(data1$Retention.time..min.),]      # Groupeement de la plus petite à la plus grande valeur (RT) ...
 #data1<-data1[which(data1$Retention.time..min.<11), ] # On enlève les peaks à plus de 11 min
 ```
 
@@ -104,7 +106,7 @@ write.csv(CompoundsDetected, file = "CompoundsDetected.csv", row.names = FALSE)
 Création d'un nouveau fichier avec une colonne pour faire des groupe (data2)
 
 ```{R}
-data1<-data1[order(data1$Retention.time..min.),]      # Classement de la plus petite à la plus grande valeur (RT) ...
+data1<-data1[order(data1$Retention.time..min.),]      # Groupeement de la plus petite à la plus grande valeur (RT) ...
 data1_ID<-data1[which(!(data1$Identification %in% "-")),]  # On sépare les composé avec une ID
 data1_ID
 #data1_NoID<-data1[which((data1$Identification %in% "-")),] # On sépare les composé sans ID
@@ -153,17 +155,20 @@ for (i in 1:n){
 # On obtient un fichier .csv avec l'indication des groupes
 setwd(wd)
 write.csv(data2, file = "data2.csv", row.names = FALSE)  # On enregiste un fichier appelé data2
+
+#Cleaning step
+remove(data1)
 ```
 #Par groupe on ne garder que le peak le plus intense et on rajoute les pics avec une identification qui ont été éffacé (data4) 
 ```{R}
-s<-split(data2,data2$Groupe)                                            # On crée une liste avec les pics classés par groupe 
+s<-split(data2,data2$Groupe)                                            # On crée une liste avec les pics Groupeés par groupe 
 data3 <- as.data.frame(data2[0,])
 groupelist<-unique(data2$Groupe)                                        # On recherche la liste des groupes
 
 for (i in 1: length(groupelist)) {
 
 tempdata<-data2[which(data2$Groupe == groupelist[i]), ]         # On crée un data.frame temporaire qui extrait les pics du même groupe
-tempdata<-tempdata[order(-tempdata$Maximum.Abundance),]         # On classe du plus intense au moins intense
+tempdata<-tempdata[order(-tempdata$Maximum.Abundance),]         # On Groupee du plus intense au moins intense
 data3[i,]<-tempdata[1,]                                         # On stock le pics le plus intense dans le data.frame data3
 data3[i,1]<-as.character(tempdata[1,1])                         # Si non le nom change en chiffre
 }
@@ -178,347 +183,35 @@ write.csv(data4, file = "data4.csv", row.names = FALSE)
 # On va enlever  les composés qui ont la plus haute moyenne dans les blancs, ils sont surement inutiles
 
 data4<-data4[which(!data4$Highest.Mean == "Blank"), ]
+
+# Cleaning steps
+remove(data2, data3,s, data1_ID, tempdata)
 ```
 
 
-# Pour creer les cartes de chaleur on va utiliser le package PHeatmap. Il s'agit d'un des packages qui offre le plus de possibilit?s en mati?re de cr?ation de cartes de chaleurs complexes.
-
-```{r}
-pcks <- c("car","caret","pheatmap", "colorRamps", "RColorBrewer", "dendsort")
-lapply(pcks, require, character.only = TRUE)
-```
 On transpose le dataframe, on ajoute le groupe pour chaque échantillon, et on enlève les lignes inutiles
 ```{R}
 #data5<-rbind(data1,groups) # Le groupe est ajouté à la dernière ligne du dataframe
 data5<-data4
 rownames(data5)<-data5[,1]
-data5<-data5[,-1]
-data5<-data5[,15:ncol(data5)]   # Changer le 15 par la colonne ou le premier échantillons se trouve
-class<-class[,16:ncol(class)] 
+CompoundsName<-data5[,1]
+data5<-data5[,16:ncol(data5)]
+Groupe<-Groupe[,16:ncol(Groupe)]
+data5<-as.data.frame(t(data5),stringsAsFactors=FALSE)
+Groupe<-as.data.frame(t(Groupe),stringsAsFactors=FALSE)
 
-data5<-as.data.frame(t(data5),stringsAsFactors=FALSE)            # transposition du dataframe
-class<-as.data.frame(t(class),stringsAsFactors=FALSE)            # transposition du dataframe
-
-data6<-cbind(class, data5)
-colnames(data6[1])<-"Class"
-wd<-paste("C:/Users/nkummer1/switchdrive/MA/Vion/Data Treatment/R/",samplename, sep = "")
-setwd(wd)
-write.csv(data6, file = "data6(MetaboAnalyst).csv", row.names = TRUE)  # On enregiste un fichier appelé data7(MetaboAnalyst).csv
-```
-
-On va remplacer les 0 par 1 car les fonctions n'aiment pas les valeurs nulles. De plus, on va mettre les noms des groupes et des échantillons dans des variables séparées pour pouvoir ensuite s'en servir comme label et pouvoir leur attribuer des couleurs.
-```{r}
-data7 <- as.data.frame(data5)
-#data7[data7 == 0] <- 1
-data7_name <- rownames(data7)# Les échantillons
-data7_groups <- class  # Les classe
-data7_features <- colnames(data7)  # Les composés
-```
-
-# Prétraitements des variables 
-```{R}
-data <- as.data.frame(data7)
-# Racine
-data.sqrt <- sqrt(data)
-n<-ncol(data)
-
-# Somme des aires
-for(i in 1:nrow(data))
-  {data[i,n+1] <- sum(data[i,c(1:n)])
-}
-
-data.as <- data.frame(ncol(n))
-
-for(i in 1:nrow(data))
-  { for(j in 1:n)
-    { data.as[i,j] <- data[i,j]/data[i,n+1]
-  }
-}
-
-data <- data[,-(n+1)]
-colnames(data.as) <- colnames(data)
-
-# Somme des aires et racine
-data.as.sqrt <- sqrt(data.as)
-
-# Z-score
-data.zscore <- scale(data, center=T, scale=T)
-data.sqrt.s<-data.frame(apply(data.sqrt,2,function(x) (x-mean(x)/sd(x))))
-colnames(data.sqrt.s) <- colnames(data.sqrt)
-
-#par(mfrow=c(5,1))
-boxplot(data, main="Sans pré-traitment (data)")
-boxplot(data.sqrt, main="Somme des aires (data.sqrt)")
-boxplot(data.as.sqrt, main="Somme des aires et racine (data.as.sqrt)")
-boxplot(data.zscore, main="Z-score (data.zscore)")
-boxplot(data.sqrt.s, main="data.sqrt.s")
-
-```
-#PCA sur les variables sélectionnées (Changer les nome des Classes)
-```{R}
-couleur<-ifelse(class=="Cocaine", "Red", ifelse(class=="Heroin", "Blue", ifelse(class=="NPS", "Green", "black")))
-dataSel<-data
-# PCA données brutes
-data.pca1 <- prcomp(dataSel, scale.=F)
-#inconnus.pca1<-inconnusSel
-var_exp1 <- 100*data.pca1$sdev^2/sum(data.pca1$sdev^2)
-var_exp_cum1 <- cumsum(var_exp1)
-plot(data.pca1$x[,1], data.pca1$x[,2], col=couleur, 
-     xlab=paste("PC1 (",round(var_exp1[1], digits=2),"% de variance expliquée)"), 
-     ylab=paste("PC2 (",round(var_exp1[2], digits=2),"% de variance expliquée)"),
-     main=paste("PCA1 variables sélectionnées \n (",round(var_exp_cum1[2], digits=2),
-                "% de variance expliquée)"), cex.main=1)
-legend("topright",legend=c("Cocaine", "Heroin","NPS", "Blank"), col=c("Red", "blue", "Green", "Black"),pch=c(1,1,1,1,1))
-PC1Title<-paste("PCA1 (bruts)")
-
-# PCA données racine
-data.pca2 <- prcomp(data.sqrt, scale.=F)
-#inconnus.pca2<-inconnus.sqrt
-var_exp2 <- 100*data.pca2$sdev^2/sum(data.pca2$sdev^2)
-var_exp_cum2 <- cumsum(var_exp2)
-plot(data.pca2$x[,1], data.pca2$x[,2], col=couleur, 
-     xlab=paste("PC1 (",round(var_exp2[1], digits=2),"% de variance expliquée)"), 
-     ylab=paste("PC2 (",round(var_exp2[2], digits=2),"% de variance expliquée)"),
-     main=paste("PCA2 variables sélectionnées - racine \n (",round(var_exp_cum2[2], digits=2),
-                "% de variance expliquée)"),cex.main=1)
-legend("bottomleft",legend=c("Cocaine", "Heroin","NPS", "Blank"), col=c("Red", "blue", "Green", "Black"),pch=c(1,1,1,1,1))
-PC2Title<-"PCA2 (racine)"
-
-# PCA données somme des aires
-data.pca3 <- prcomp(data.as, scale.=F)
-#inconnus.pca3<-inconnus.as
-var_exp3 <- 100*data.pca3$sdev^2/sum(data.pca3$sdev^2)
-var_exp_cum3 <- cumsum(var_exp3)
-plot(data.pca3$x[,1], data.pca3$x[,2], col=couleur, 
-     xlab=paste("PC1 (",round(var_exp3[1], digits=2),"% de variance expliquée)"), 
-     ylab=paste("PC2 (",round(var_exp3[2], digits=2),"% de variance expliquée)"),
-     main=paste("PCA3 variables sélectionnées - somme des aires \n (",round(var_exp_cum3[2], digits=2),
-                "% de variance expliquée)"),cex.main=1)
-legend("bottomleft",legend=c("Cocaine", "Heroin","NPS", "Blank"), col=c("Red", "blue", "Green", "Black"),pch=c(1,1,1,1,1))
-PC3Title<-"PCA3 (somme des aires)"
-
-# PCA somme des aires et racine
-data.pca4 <- prcomp(data.as.sqrt, scale.=F)
-#inconnus.pca4<-inconnus.as.sqrt
-var_exp4 <- 100*data.pca4$sdev^2/sum(data.pca4$sdev^2)
-var_exp_cum4 <- cumsum(var_exp4)
-plot(data.pca4$x[,1], data.pca4$x[,2], col=couleur, 
-     xlab=paste("PC1 (",round(var_exp4[1], digits=2),"% de variance expliquée)"), 
-     ylab=paste("PC2 (",round(var_exp4[2], digits=2),"% de variance expliquée)"),
-     main=paste("PCA4 variables sélectionnées - somme des aires et racine \n (",round(var_exp_cum4[2], digits=2),
-                "% de variance expliquée)"),cex.main=1)
-legend("topright",legend=c("Cocaine", "Heroin","NPS", "Blank"), col=c("Red", "blue", "Green", "Black"),pch=c(1,1,1,1,1))
-PC4Title<-"PCA4 (somme des aires et racine)"     
-
-# souvenez-vous, scale.r=T effectue un z-score.      
-# PCA z-score
-data.pca5 <- prcomp(dataSel, scale.=T)
-#inconnus.pca5<-inconnusSel
-var_exp5 <- 100*data.pca5$sdev^2/sum(data.pca5$sdev^2)
-var_exp_cum5 <- cumsum(var_exp5)
-plot(data.pca5$x[,1], data.pca5$x[,2], col=couleur, 
-     xlab=paste("PC1 (",round(var_exp5[1], digits=2),"% de variance expliquée)"), 
-     ylab=paste("PC2 (",round(var_exp5[2], digits=2),"% de variance expliquée)"),
-     main=paste("PCA5 variables sélectionnées - z-score \n (",round(var_exp_cum5[2], digits=2),
-                "% de variance expliquée)"),cex.main=1)
-legend("bottomleft",legend=c("Cocaine", "Heroin","NPS", "Blank"), col=c("Red", "blue", "Green", "Black"),pch=c(1,1,1,1,1))
-PC5Title<-"PCA5 (z-score)"   
-
-# PCA données racine et z-score
-data.pca6 <- prcomp(data.sqrt, scale.=T)
-#inconnus.pca6<-inconnus.sqrt
-var_exp6 <- 100*data.pca6$sdev^2/sum(data.pca6$sdev^2)
-var_exp_cum6 <- cumsum(var_exp6)
-plot(data.pca6$x[,1], data.pca6$x[,2], col=couleur, 
-     xlab=paste("PC1 (",round(var_exp6[1], digits=2),"% de variance expliquée)"), 
-     ylab=paste("PC2 (",round(var_exp6[2], digits=2),"% de variance expliquée)"),
-     main=paste("PCA6 variables sélectionnées - racine et z-score \n (",round(var_exp_cum6[2], digits=2),
-                "% de variance expliquée)"),cex.main=1)
-legend("bottomleft",legend=c("Cocaine", "Heroin","NPS", "Blank"), col=c("Red", "blue", "Green", "Black"),pch=c(1,1,1,1,1))
-PC6Title<-"PCA6 (racine et z-score)"   
-
-# PCA données somme des aires et z-score
-data.pca7 <- prcomp(data.as, scale.=T)
-#inconnus.pca7<-inconnus.as
-var_exp7 <- 100*data.pca7$sdev^2/sum(data.pca7$sdev^2)
-var_exp_cum7 <- cumsum(var_exp7)
-plot(data.pca7$x[,1], data.pca7$x[,2], col=couleur, 
-     xlab=paste("PC1 (",round(var_exp7[1], digits=2),"% de variance expliquée)"), 
-     ylab=paste("PC2 (",round(var_exp7[2], digits=2),"% de variance expliquée)"),
-     main=paste("PCA7 variables sélectionnées - somme des aires et z-score \n (",round(var_exp_cum7[2], digits=2),
-                "% de variance expliquée)"),cex.main=1)
-legend("topright",legend=c("Cocaine", "Heroin","NPS", "Blank"), col=c("Red", "blue", "Green", "Black"),pch=c(1,1,1,1,1))
-PC7Title<-"PCA7 (somme des aires et z-score)"   
-
-# PCA somme des aires et racine et z-score
-data.pca8 <- prcomp(data.as.sqrt, scale.=T)
-#inconnus.pca8<-inconnus.as.sqrt
-var_exp8 <- 100*data.pca8$sdev^2/sum(data.pca8$sdev^2)
-var_exp_cum8 <- cumsum(var_exp8)
-plot(data.pca8$x[,1], data.pca8$x[,2], col=couleur, 
-     xlab=paste("PC1 (",round(var_exp8[1], digits=2),"% de variance expliquée)"), 
-     ylab=paste("PC2 (",round(var_exp8[2], digits=2),"% de variance expliquée)"),
-     main=paste("PCA8 variables sélectionnées - somme des aires et racine et z-score \n (",round(var_exp_cum8[2], digits=2),
-                "% de variance expliquée)"),cex.main=1)
-legend("topright",legend=c("Cocaine", "Heroin","NPS", "Blank"), col=c("Red", "blue", "Green", "Black"),pch=c(1,1,1,1,1))
-PC8Title<-"PCA8 (somme des aires, racine et z-score)"
-
-# PCA somme des aires 
-data.pca9 <- prcomp(data.sqrt.s, scale.=T)
-#inconnus.pca9<-inconnus.sqrt.s
-var_exp9 <- 100*data.pca9$sdev^2/sum(data.pca9$sdev^2)
-var_exp_cum9 <- cumsum(var_exp9)
-plot(data.pca9$x[,1], data.pca9$x[,2], col=couleur, 
-     xlab=paste("PC1 (",round(var_exp9[1], digits=2),"% de variance expliquée)"), 
-     ylab=paste("PC2 (",round(var_exp9[2], digits=2),"% de variance expliquée)"),
-     main=paste("PCA9 variables sélectionnées - racine et z-score \n (",round(var_exp_cum9[2], digits=2),
-                "% de variance expliquée)"),cex.main=1)
-legend("topright",legend=c("Cocaine", "Heroin","NPS", "Blank"), col=c("Red", "blue", "Green", "Black"),pch=c(1,1,1,1,1))
-PC9Title<-"PCA9 (somme des aires, racine et z-score)"
-```
-
-PCA et études des variables explicatives avec le pré traitement choisit (Attention changer le nom de la variable dana la première ligne)
-```{R}
-data.pca<-data.pca4
-#install.packages("dendextend")
-library("dendextend")
-#install.packages("e1071")
-library("e1071")
-#install.packages("rgl")
-library("rgl")
-couleur<-ifelse(class=="Cocaine", "Red", ifelse(class=="Heroin", "Blue", ifelse(class=="NPS", "Green", "black")))
-names(data.pca)
-var_exp<-100*data.pca$sdev^2/sum(data.pca$sdev^2)
-var_exp_cum<-cumsum(var_exp)
-var_exp
-var_exp_cum
-
-#PC 1,2,3,4
-pairs(data.pca$x[,1:4],col=couleur)
-
-#PC 1 et 2
-plot(data.pca$x[,1],data.pca$x[,2],col=couleur,xlab=paste("PC1 (",round(var_exp1[1],digits=2),"% de variance expliqu?e)"))
-#identify(data.pca$x[,1],data.pca$x[,2],row.names(data), tolerance=0.25)
-text(data.pca$x[,1],row.names(data), pos=4,cex=0.8, col=couleur)
-legend("topright",legend=c("Cocaine", "Heroin","NPS", "Blank"), col=c("Red", "blue", "Green", "Black"),pch=c(1,1,1,1,1))
-# 3D plot
-plot3d(data.pca$x,col=couleur)
-
-# Loading plots
-abs(data.pca$rotation[,1:3])
-min <- min(abs(data.pca$rotation[,1:3]))
-max <- max(abs(data.pca$rotation[,1:3]))
-plot(abs(data.pca$rotation[,1]), col="red", pch="1", type="b", ylim=c(min,max),
-     xlab="Variables", ylab="Loadings", main="Loadings de PC1, PC2, PC3")
-axis(1,at = seq(13))
-    # rajoutons loadings de PC2 et PC3
-    lines(abs(data.pca$rotation[,2]), col="green", pch="2", type="b")
-    lines(abs(data.pca$rotation[,3]), col="blue", pch="3", type="b")
-
-# Loadings PC1 et PC2 (et pC 3) avec les variables 
-plot(data.pca$rotation[,1:2], xlab="PC1", ylab="PC2", main="Loadings de PC1 et PC2",
-     xlim=c(-0.6,0.6),ylim=c(-0.6,0.6)) # on doit mettre xlim pour voir la légende
-text(data.pca$rotation[,1:2], rownames(data.pca$rotation[,1:2]), pos=4)
-abline(h=0, col="red", lty="dotted")
-abline(h=0.4, col="red", lty="dotted")
-abline(h=-0.4, col="red", lty="dotted")
-abline(v=0, col="red", lty="dotted")
-abline(v=0.4, col="red", lty="dotted")
-abline(v=-0.4, col="red", lty="dotted")
-
-data.pca$rotation[,1:3] # Pour faire apparaitre les variables influentes par PC
-
-## Biplots
-biplot(data.pca, pc.biplot=TRUE, xlab="PC1", ylab="PC2", 
-       main="Biplot PC1 et PC2 \n", xlim=c(-3,3),cex=c(0.8,0.8), pch="2")
-
-
-## Sélection du nombre de composantes principales optimales
-# Barplot (limite de 80%, loi de Pareto)
-plot(var_exp_cum, xlab="Nombre de PC", ylab="", main="% cumulatif de la variance
-     expliquée", type="b")
-axis(1, at = seq(13)) 
-abline(h=80,col="red",lty="dotted")
-
-bp.pca <- barplot(var_exp_cum, xlab="Nombre de PC", ylab="", col="grey",
-                   main="% cumulatif de la variance expliquée",
-                   border=NA)
-abline(h=80,col="red",lty="dotted")
-text(x=bp.pca, y=var_exp_cum+(par("cxy")[2]/2), labels=round(var_exp_cum, digits=0),
-     xpd=TRUE)
-# on aurait besoin de 5 PC
-
-# supprimer PC avec variance < 1
-var <- data.pca$sdev^2
-plot(var, type="b", xlab="PC", ylab="Variances/Eigenvalues", main="Scree plot")
-axis(1, at = seq(13)) 
-abline(h=1, col="red", lty="dotted")
-# 3 PC du coup
-
-var_exp_cum["Comp.3"]
-
-Loadings<-data.pca$rotation  # Pour voir quelles variables jourent le plus pour la séparations
-Loadings<-Loadings[,1:6] # On garde ici que les 6 premières PC (qui expliquent 80 % de la variance)
 
 wd<-paste("C:/Users/nkummer1/switchdrive/MA/Vion/Data Treatment/R/",samplename, sep = "")
 setwd(wd)
-write.csv(Loadings, file = "Loadings.csv", row.names = TRUE)  # On enregiste 
-```
+write.csv(data5, file = "data5.csv", row.names = TRUE)  # On enregiste un fichier appelé data5.csv
 
-## Corriger jusque ici...
-On peut encore faire une transformation logaritmique
-```{R}
-# changer le nom pour prendre en compte le prétraitement (aucun = dataSel, racine = data.sqrt, sommedes aires = data.as, somme des aires et racine = data.as.sqrt et z-score = data.zscore )
-data7_predLog <- data.as.sqrt
-#data7_predLog <- log10(data7_predNorm)
-data7_predLogTransp <- t(data7_predLog)
-colnames(data7_predLogTransp)<-data7_name
-#colnames(data7_predLogTransp) <- data7_features
+SampleName<-as.data.frame(rownames(data5))
+
+colnames(Groupe)<-"Groupe"
+data5_Groupe<-cbind(Groupe, data5)
+data5_Name_Groupe<-cbind(SampleName, Groupe, data5)
 
 wd<-paste("C:/Users/nkummer1/switchdrive/MA/Vion/Data Treatment/R/",samplename, sep = "")
 setwd(wd)
-write.csv(data7_predLogTransp, file = "HeatMap.csv", row.names = TRUE)  # On enregiste 
-```
-On va ensuite définir les arguments pour la légende de la carte de chaleur et attribuer les différentes couleurs. NK, pour les nom on prend que les 20 premier caractères
-```{r}
-colnames(data7_predLogTransp) = data7_name
-##rownames(data1_predLogTransp) = data1_features
-first.20 <- substr(data7_features, start=1, stop=50)
-rownames(data7_predLogTransp) = first.20
-data7_col <- data.frame(group = data7_groups)
-rownames(data7_col) <- data7_name
-data7_colors <- list(group = brewer.pal(4, "Set1"))
-names(data7_colors$group) <- unique(data7_groups)
-```
-On va maintenant pouvoir cr?er les cartes de chaleur. On peut choisir de faire apparaitre plus ou moins de choses dans la l?gende de m?me que de "scaler" ou non les donn?es. Si on d?cide dans un premier temps d'afficher un maximum d'informations et de "scaler" les donn?es on obtient la carte de chaleur suivante:
-```{r}
-pheatmap(data7_predLogTransp, color = colorRampPalette(c("navy", "gray94", "red"))(10), scale="column" , clustering_distance_rows = "euclidean", 
-         clustering_distance_cols = "euclidean", cluster_rows = FALSE, cluster_cols = FALSE,
-         clustering_method = "ward.D2", annotation_colors = data7_colors, annotation_col = data7_col, 
-         drop_levels = TRUE, fontsize_col = 2,fontsize_row = 2, cellwidth = 3, fontsize = 4, main = "Heatmap", border_color="grey")
-
-```
-Il y a tellement de variables affich?es que l'on arrive pas ? lire les noms sur le c?t?. Si on essaye de la rendre plus visible en supprimant le nom des diff?rentes variables et des ?chantillons en bas, on obtient une carte en png :
-```{r}
-wd<-paste("C:/Users/nkummer1/switchdrive/MA/Vion/Data Treatment/R/",samplename, sep = "")
-setwd(wd)
-colnames(data7_groups)<-"Groups"
-classList<-unique(data7_groups)
-Separation1<-length(data7_groups[which(data7_groups$Groups == "Cocaine"),])
-Separation2<-length(data7_groups[which(data7_groups$Groups == "Heroin"),])+Separation1
-Separation3<-length(data7_groups[which(data7_groups$Groups == "Blank"),])+Separation2
-
-##jpeg("HeatMap.jpg", width = 20, height = 160, units = 'in', res = 400) # show_rownames = TRUE, show_colnames = TRUE per default
-##png("HeatMap.png",width=3000,height=90000, res=400)
-#png("HeatMap.png",width=2500,height=70000, res=400)
-pdf("HeatMap.pdf")
-#pheatmap(data7_predLogTransp, color = colorRampPalette(c("white", "gray94", "red4"))(10), scale="column" , clustering_distance_rows = "euclidean", 
-        # clustering_distance_cols = "euclidean", cluster_rows = FALSE, cluster_cols = FALSE,
-        # clustering_method = "ward.D2", annotation_colors = data7_colors, annotation_col = data7_col, 
-        # drop_levels = TRUE, fontsize_col = 2,fontsize_row = 2, cellwidth = 3, gaps_col = c(Separation1, Separation2, Separation3), cellheight = 3, fontsize = 4, main = "Heatmap", border_color="grey")
-pheatmap(data7_predLogTransp, color = colorRampPalette(c("white","lavenderblush", "darkred"))(10), scale="row" , clustering_distance_rows = "euclidean", 
-         clustering_distance_cols = "euclidean", cluster_rows = FALSE, cluster_cols = FALSE,
-         clustering_method = "ward.D2", annotation_colors = data7_colors, annotation_col = data7_col, 
-         drop_levels = TRUE, fontsize_col = 2,fontsize_row = 2, cellwidth = 3, gaps_col = c(Separation1, Separation2, Separation3), cellheight = 3, fontsize = 4, main = "Heatmap", border_color="grey")
-
+write.csv(data5_Groupe, file = "data5_Name_Groupe.csv", row.names = TRUE)  # On enregiste un fichier appelé data5_Name_Groupe.csv
 ```
